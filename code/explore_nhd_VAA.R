@@ -18,17 +18,30 @@ library(ggplot2)
 library(tidyverse)
 
 #download data
-catchment <- st_read(
-  dsn ="data//SO12catchments_Susquehanna//NHDPLUS_H_0205_HU4_GDB.gdb", 
-  layer = "NHDPlusFlowlineVAA")
+df <- st_read(
+        dsn ="data//SO12catchments_Susquehanna//NHDPLUS_H_0205_HU4_GDB.gdb", 
+        layer = "NHDPlusFlowlineVAA") %>% 
+  as_tibble()
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Step 2: Create 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-catchment %>% 
-  select(Slope) %>% 
+#Delineate groups
+df2 <- bind_rows(
+  df %>% 
+    filter(StreamOrde==1) %>% 
+    mutate(cat = "one"), 
+  df %>% 
+    filter(StreamOrde==1 | StreamOrde==2) %>% 
+    mutate(cat = "one+two"), 
+  df %>% 
+    mutate(cat = "all")) 
+ 
+#Plot Channel Slopes 
+df2 %>% 
+  select(Slope, cat) %>% 
   filter(Slope>0) %>% 
-  ggplot(aes(y=Slope)) + 
+  ggplot(aes(y=Slope, x=cat)) + 
     geom_boxplot() + 
     scale_y_log10() +
     theme_bw()
