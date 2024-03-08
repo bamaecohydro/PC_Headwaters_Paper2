@@ -16,35 +16,83 @@ remove(list=ls())
 library(sf)
 library(ggplot2)
 library(tidyverse)
+library(patchwork)
 
-#download data
+# download data
 df <- st_read(
         dsn ="data//SO12catchments_Susquehanna//NHDPLUS_H_0205_HU4_GDB.gdb", 
         layer = "NHDPlusFlowlineVAA") %>% 
   as_tibble()
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Step 2: Create 
+# Step 2: Create Plots ---------------------------------------------------------
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-#Delineate groups
+# delineate groups
 df2 <- bind_rows(
   df %>% 
     filter(StreamOrde==1) %>% 
-    mutate(cat = "one"), 
+    mutate(cat = "1st"), 
   df %>% 
     filter(StreamOrde==1 | StreamOrde==2) %>% 
-    mutate(cat = "one+two"), 
+    mutate(cat = "1st and 2nd"), 
   df %>% 
-    mutate(cat = "all")) 
+    mutate(cat = "All Streams")) 
  
-#Plot Channel Slopes 
-df2 %>% 
+df2$cat <- factor(df2$cat, levels = c('1st','1st and 2nd', 'All Streams'),ordered = TRUE)
+
+# plot Channel Slopes 
+slope_plot <- df2 %>% 
   select(Slope, cat) %>% 
   filter(Slope>0) %>% 
   ggplot(aes(y=Slope, x=cat)) + 
-    geom_boxplot() + 
-    scale_y_log10() +
-    theme_bw()
+    geom_boxplot(outlier.shape = NA) + 
+    theme_bw() + 
+      scale_y_log10() +    
+      xlab(NULL) +
+      ylab("Slope [m/m]") +
+      theme(
+        axis.title.y = element_text(size = 14), 
+        axis.text.y  = element_text(size = 10), 
+        axis.text.x  = element_text(size = 14)
+      )
+      
+# plot channel elevations
+elevation_plot <- df2 %>% 
+  select(MaxElevSmo, cat) %>% 
+  filter(MaxElevSmo>0) %>% 
+  ggplot(aes(y=MaxElevSmo, x=cat)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  theme_bw() + 
+  scale_y_log10(limits = c(1e4, 1e5)) +    
+  xlab(NULL) +
+  ylab("Max Reach Elevation") +
+  theme(
+    axis.title.y = element_text(size = 14), 
+    axis.text.y  = element_text(size = 10), 
+    axis.text.x  = element_text(size = 14)
+  ) 
+elevation_plot
 
-#  plot boxplot based on 1st, 2nd, lowland, and all
 
+# plot watershed areas
+watershed_area_plot <- df2 %>% 
+  select(TotDASqKm, cat) %>% 
+  filter(TotDASqKm>0) %>% 
+  ggplot(aes(y=TotDASqKm, x=cat)) + 
+  geom_boxplot(outlier.shape = NA) + 
+  theme_bw() + 
+  scale_y_log10(limits = c(1e-2, 1e3)) +    
+  xlab(NULL) +
+  ylab("Drainage Area [km^2]") +
+  theme(
+    axis.title.y = element_text(size = 14), 
+    axis.text.y  = element_text(size = 10), 
+    axis.text.x  = element_text(size = 14)
+  ) 
+watershed_area_plot
+
+# print plots 
+(elevation_plot / slope_plot / watershed_area_plot) +
+    plot_layout(axes = "collect")
+
+ggsave("docs//VAA_headwater_plots.png", width = 5, height = 7, units = "in")
